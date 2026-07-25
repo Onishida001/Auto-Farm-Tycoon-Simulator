@@ -1,0 +1,267 @@
+-- Garante que interfaces anteriores sejam deletadas ao reexecutar
+if _G.CrystalUI then _G.CrystalUI:Destroy() end
+
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local player = game:GetService("Players").LocalPlayer
+local workspace = game:GetService("Workspace")
+
+getgenv().AutoCollectCrystals = false
+getgenv().InvisibleMode = false
+getgenv().ItemsCollected = 0
+
+-- Elementos Principais da Janela
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "CrystalCollectorUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = CoreGui
+_G.CrystalUI = ScreenGui
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 240, 0, 240)
+MainFrame.Position = UDim2.new(0.5, -120, 0.4, -120)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.Parent = MainFrame
+
+-- Barra de Título
+local TitleBar = Instance.new("TextLabel")
+TitleBar.Size = UDim2.new(1, 0, 0, 35)
+TitleBar.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
+TitleBar.Text = "  💎 Tycoon Collector v2"
+TitleBar.TextColor3 = Color3.fromRGB(240, 240, 240)
+TitleBar.TextXAlignment = Enum.TextXAlignment.Left
+TitleBar.Font = Enum.Font.SourceSansBold
+TitleBar.TextSize = 16
+TitleBar.BorderSizePixel = 0
+TitleBar.Parent = MainFrame
+
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 8)
+TitleCorner.Parent = TitleBar
+
+-- Botão Minimizar
+local MinButton = Instance.new("TextButton")
+MinButton.Size = UDim2.new(0, 25, 0, 25)
+MinButton.Position = UDim2.new(1, -60, 0, 5)
+MinButton.BackgroundTransparency = 1
+MinButton.Text = "_"
+MinButton.TextColor3 = Color3.fromRGB(200, 200, 200)
+MinButton.Font = Enum.Font.SourceSansBold
+MinButton.TextSize = 18
+MinButton.Parent = MainFrame
+
+-- Botão Fechar
+local CloseButton = Instance.new("TextButton")
+CloseButton.Size = UDim2.new(0, 25, 0, 25)
+CloseButton.Position = UDim2.new(1, -30, 0, 5)
+CloseButton.BackgroundTransparency = 1
+CloseButton.Text = "X"
+CloseButton.TextColor3 = Color3.fromRGB(255, 100, 100)
+CloseButton.Font = Enum.Font.SourceSansBold
+CloseButton.TextSize = 16
+CloseButton.Parent = MainFrame
+
+-- Contador de Itens
+local CounterLabel = Instance.new("TextLabel")
+CounterLabel.Size = UDim2.new(1, -40, 0, 30)
+CounterLabel.Position = UDim2.new(0, 20, 0, 50)
+CounterLabel.BackgroundColor3 = Color3.fromRGB(45, 45, 50)
+CounterLabel.Text = "Coletados: 0"
+CounterLabel.TextColor3 = Color3.fromRGB(100, 220, 255)
+CounterLabel.Font = Enum.Font.SourceSansBold
+CounterLabel.TextSize = 16
+CounterLabel.Parent = MainFrame
+
+local CounterCorner = Instance.new("UICorner")
+CounterCorner.CornerRadius = UDim.new(0, 6)
+CounterCorner.Parent = CounterLabel
+
+-- Botão de Ativar/Desativar Farm (Cristais e Crates)
+local ToggleButton = Instance.new("TextButton")
+ToggleButton.Size = UDim2.new(1, -40, 0, 45)
+ToggleButton.Position = UDim2.new(0, 20, 0, 95)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(255, 65, 65)
+ToggleButton.Text = "Auto-Farm: DESATIVADO"
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleButton.Font = Enum.Font.SourceSansBold
+ToggleButton.TextSize = 15
+ToggleButton.Parent = MainFrame
+
+local ButtonCorner = Instance.new("UICorner")
+ButtonCorner.CornerRadius = UDim.new(0, 6)
+ButtonCorner.Parent = ToggleButton
+
+-- Botão de Ativar/Desativar Invisibilidade
+local InvisButton = Instance.new("TextButton")
+InvisButton.Size = UDim2.new(1, -40, 0, 45)
+InvisButton.Position = UDim2.new(0, 20, 0, 150)
+InvisButton.BackgroundColor3 = Color3.fromRGB(255, 65, 65)
+InvisButton.Text = "Invisibilidade: DESATIVADO"
+InvisButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+InvisButton.Font = Enum.Font.SourceSansBold
+InvisButton.TextSize = 15
+InvisButton.Parent = MainFrame
+
+local InvisCorner = Instance.new("UICorner")
+InvisCorner.CornerRadius = UDim.new(0, 6)
+InvisCorner.Parent = InvisButton
+
+-- Créditos / Status do Rodapé
+local Credits = Instance.new("TextLabel")
+Credits.Size = UDim2.new(1, 0, 0, 20)
+Credits.Position = UDim2.new(0, 0, 1, -25)
+Credits.BackgroundTransparency = 1
+Credits.Text = "Aguardando comandos..."
+Credits.TextColor3 = Color3.fromRGB(150, 150, 150)
+Credits.Font = Enum.Font.SourceSansItalic
+Credits.TextSize = 12
+Credits.Parent = MainFrame
+
+----------------------------------------------------
+-- SISTEMA DE INVISIBILIDADE (COMPATÍVEL COM TELEPORTE)
+----------------------------------------------------
+local savedParts = {}
+
+local function setInvisState(state)
+    local char = player.Character
+    if not char then return end
+    
+    for _, part in ipairs(char:GetDescendants()) do
+        if part:IsA("BasePart") or part:IsA("Decal") then
+            -- Ignora o HumanoidRootPart para você não cair do mapa
+            if part.Name ~= "HumanoidRootPart" then
+                if state then
+                    -- Salva a transparência original se ainda não tiver salvo
+                    if not savedParts[part] then
+                        savedParts[part] = part.Transparency
+                    end
+                    part.Transparency = 1 -- Fica invisível
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                else
+                    -- Restaura se for desativado
+                    if savedParts[part] then
+                        part.Transparency = savedParts[part]
+                        if part.Name == "UpperTorso" or part.Name == "LowerTorso" or part.Name == "Torso" then
+                            part.CanCollide = true
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- Mantém invisível mesmo se o boneco renascer ou atualizar as roupas
+task.spawn(function()
+    while ScreenGui and ScreenGui.Parent do
+        if getgenv().InvisibleMode then
+            setInvisState(true)
+        end
+        task.wait(0.5)
+    end
+end)
+
+----------------------------------------------------
+-- MECÂNICA DE COLETA (CRISTAIS & CRATES)
+----------------------------------------------------
+local function collectItem(object)
+    if not getgenv().AutoCollectCrystals then return end
+    local character = player.Character
+    local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+    local targetPart = object:IsA("BasePart") and object or object:FindFirstChildWhichIsA("BasePart")
+    
+    if rootPart and targetPart then
+        rootPart.CFrame = targetPart.CFrame
+        getgenv().ItemsCollected = getgenv().ItemsCollected + 1
+        CounterLabel.Text = "Coletados: " .. tostring(getgenv().ItemsCollected)
+        task.wait(0.3)
+    end
+end
+
+-- Loop de Varredura Otimizado
+task.spawn(function()
+    while ScreenGui and ScreenGui.Parent do
+        if getgenv().AutoCollectCrystals then
+            for _, child in ipairs(workspace:GetChildren()) do
+                -- Ignora pastas pesadas de construções e esteiras
+                if child.Name ~= "Tycoons" and child.Name ~= "Environments" then
+                    local nameLower = child.Name:lower()
+                    -- Filtro detecta variações de Crystal (cristais) e Crate / Gift / Box (caixas de evento)
+                    if string.find(nameLower, "crystal") or string.find(nameLower, "cristal") or string.find(nameLower, "crate") or string.find(nameLower, "box") then
+                        collectItem(child)
+                    elseif child:IsA("Model") and (string.find(nameLower, "crystal") or string.find(nameLower, "cristal") or string.find(nameLower, "crate") or string.find(nameLower, "box")) then
+                        collectItem(child)
+                    end
+                end
+            end
+        end
+        task.wait(2)
+    end
+end)
+
+----------------------------------------------------
+-- FUNCIONALIDADES DOS BOTÕES
+----------------------------------------------------
+
+-- Toggle Farm
+ToggleButton.MouseButton1Click:Connect(function()
+    getgenv().AutoCollectCrystals = not getgenv().AutoCollectCrystals
+    if getgenv().AutoCollectCrystals then
+        ToggleButton.Text = "Auto-Farm: ATIVADO"
+        TweenService:Create(ToggleButton, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(65, 180, 65)}):Play()
+        Credits.Text = "Buscando Cristais e Caixas..."
+    else
+        ToggleButton.Text = "Auto-Farm: DESATIVADO"
+        TweenService:Create(ToggleButton, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(255, 65, 65)}):Play()
+        Credits.Text = "Farm pausado."
+    end
+end)
+
+-- Toggle Invisibilidade
+InvisButton.MouseButton1Click:Connect(function()
+    getgenv().InvisibleMode = not getgenv().InvisibleMode
+    if getgenv().InvisibleMode then
+        InvisButton.Text = "Invisibilidade: ATIVADA"
+        TweenService:Create(InvisButton, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(65, 180, 65)}):Play()
+        setInvisState(true)
+    else
+        InvisButton.Text = "Invisibilidade: DESATIVADA"
+        TweenService:Create(InvisButton, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(255, 65, 65)}):Play()
+        setInvisState(false)
+        savedParts = {}
+    end
+end)
+
+-- Minimizar
+local minimized = false
+MinButton.MouseButton1Click:Connect(function()
+    minimized = not minimized
+    if minimized then
+        TweenService:Create(MainFrame, TweenInfo.new(0.3), {Size = UDim2.new(0, 240, 0, 35)}):Play()
+        CounterLabel.Visible = false
+        ToggleButton.Visible = false
+        InvisButton.Visible = false
+        Credits.Visible = false
+        MinButton.Text = "+"
+    else
+        TweenService:Create(MainFrame, TweenInfo.new(0.3), {Size = UDim2.new(0, 240, 0, 240)}):Play()
+        task.wait(0.1)
+        CounterLabel.Visible = true
+        ToggleButton.Visible = true
+        InvisButton.Visible = true
+        Credits.Visible = true
+        MinButton.Text = "_"
+    end
+end)
+
+-- Fechar
