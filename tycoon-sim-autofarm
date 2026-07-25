@@ -1,27 +1,21 @@
--- Versão definitiva corrigida para o ambiente restrito do Xeno Executor
+-- Garante que interfaces anteriores sejam deletadas ao reexecutar
+if _G.CrystalUI then _G.CrystalUI:Destroy() end
 
-local Players = game:GetService("Players")
-local Workspace = game:GetService("Workspace")
-local UserInputService = game:GetService("UserInputService")
-
-local player = Players.LocalPlayer
-local PlayerGui = player:WaitForChild("PlayerGui") 
-
--- Procura e limpa a interface antiga usando apenas o PlayerGui
-local antigaUI = PlayerGui:FindFirstChild("CrystalCollectorUI")
-if antigaUI then
-    antigaUI:Destroy()
-end
+local CoreGui = game:GetService("CoreGui")
+local TweenService = game:GetService("TweenService")
+local player = game:GetService("Players").LocalPlayer
+local workspace = game:GetService("Workspace")
 
 getgenv().AutoCollectCrystals = false
 getgenv().InvisibleMode = false
 getgenv().ItemsCollected = 0
 
--- Inicialização Limpa da Interface no local correto
+-- Elementos Principais da Janela
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "CrystalCollectorUI"
 ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = PlayerGui
+ScreenGui.Parent = CoreGui
+_G.CrystalUI = ScreenGui
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
@@ -30,36 +24,14 @@ MainFrame.Position = UDim2.new(0.5, -120, 0.4, -120)
 MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
+MainFrame.Draggable = true
 MainFrame.Parent = ScreenGui
 
 local UICorner = Instance.new("UICorner")
 UICorner.CornerRadius = UDim.new(0, 8)
 UICorner.Parent = MainFrame
 
--- Mecânica de arrastar compatível com telas Mobile e Xeno
-local dragging, dragInput, dragStart, startPos
-local function update(input)
-    local delta = input.Position - dragStart
-    MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-end
-MainFrame.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = MainFrame.Position
-        input.Changed:Connect(function()
-            if input.UserInputState == Enum.UserInputState.End then dragging = false end
-        end)
-    end
-end)
-MainFrame.InputChanged:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
-end)
-UserInputService.InputChanged:Connect(function(input)
-    if input == dragInput and dragging then update(input) end
-end)
-
--- Título do Painel
+-- Barra de Título
 local TitleBar = Instance.new("TextLabel")
 TitleBar.Size = UDim2.new(1, 0, 0, 35)
 TitleBar.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
@@ -97,7 +69,7 @@ CloseButton.Font = Enum.Font.SourceSansBold
 CloseButton.TextSize = 16
 CloseButton.Parent = MainFrame
 
--- Contador de Cristais
+-- Contador de Itens
 local CounterLabel = Instance.new("TextLabel")
 CounterLabel.Size = UDim2.new(1, -40, 0, 30)
 CounterLabel.Position = UDim2.new(0, 20, 0, 50)
@@ -112,7 +84,7 @@ local CounterCorner = Instance.new("UICorner")
 CounterCorner.CornerRadius = UDim.new(0, 6)
 CounterCorner.Parent = CounterLabel
 
--- Botão Auto-Farm
+-- Botão de Ativar/Desativar Farm (Cristais e Crates)
 local ToggleButton = Instance.new("TextButton")
 ToggleButton.Size = UDim2.new(1, -40, 0, 45)
 ToggleButton.Position = UDim2.new(0, 20, 0, 95)
@@ -127,7 +99,7 @@ local ButtonCorner = Instance.new("UICorner")
 ButtonCorner.CornerRadius = UDim.new(0, 6)
 ButtonCorner.Parent = ToggleButton
 
--- Botão Invisibilidade
+-- Botão de Ativar/Desativar Invisibilidade
 local InvisButton = Instance.new("TextButton")
 InvisButton.Size = UDim2.new(1, -40, 0, 45)
 InvisButton.Position = UDim2.new(0, 20, 0, 150)
@@ -142,129 +114,154 @@ local InvisCorner = Instance.new("UICorner")
 InvisCorner.CornerRadius = UDim.new(0, 6)
 InvisCorner.Parent = InvisButton
 
--- Status Geral / Créditos
+-- Créditos / Status do Rodapé
 local Credits = Instance.new("TextLabel")
 Credits.Size = UDim2.new(1, 0, 0, 20)
 Credits.Position = UDim2.new(0, 0, 1, -25)
 Credits.BackgroundTransparency = 1
-Credits.Text = "Pronto para o uso!"
+Credits.Text = "Aguardando comandos..."
 Credits.TextColor3 = Color3.fromRGB(150, 150, 150)
 Credits.Font = Enum.Font.SourceSansItalic
 Credits.TextSize = 12
 Credits.Parent = MainFrame
 
 ----------------------------------------------------
--- FUNCIONALIDADE DE INVISIBILIDADE LOCAL
+-- SISTEMA DE INVISIBILIDADE (COMPATÍVEL COM TELEPORTE)
 ----------------------------------------------------
+local savedParts = {}
+
 local function setInvisState(state)
     local char = player.Character
     if not char then return end
     
-    if state then
-        for _, part in ipairs(char:GetDescendants()) do
-            if part:IsA("BasePart") or part:IsA("Decal") then
-                if part.Name ~= "HumanoidRootPart" then
-                    part.Transparency = 1
-                    if part:IsA("BasePart") then part.CanCollide = false end
-                end
-            end
-        end
-    else
-        local humanoid = char:FindFirstChildOfClass("Humanoid")
-        if humanoid then humanoid.Health = 0 end 
-    end
-end
-
-task.spawn(function()
-    while task.wait(0.5) do
-        if not ScreenGui or not ScreenGui.Parent then break end
-        if getgenv().InvisibleMode then setInvisState(true) end
-    end
-end)
-
-----------------------------------------------------
--- COLETOR INTELIGENTE RECURSIVO
-----------------------------------------------------
-local function isTargetItem(object)
-    local nameLower = object.Name:lower()
-    return string.find(nameLower, "crystal") or string.find(nameLower, "cristal") or 
-           string.find(nameLower, "crate") or string.find(nameLower, "box") or 
-           string.find(nameLower, "gift")
-end
-
-task.spawn(function()
-    while task.wait(1) do
-        if not ScreenGui or not ScreenGui.Parent then break end
-        if getgenv().AutoCollectCrystals then
-            for _, child in ipairs(Workspace:GetDescendants()) do
-                if not getgenv().AutoCollectCrystals then break end
-                
-                if isTargetItem(child) then
-                    local character = player.Character
-                    local rootPart = character and character:FindFirstChild("HumanoidRootPart")
-                    local targetPart = child:IsA("BasePart") and child or child:FindFirstChildWhichIsA("BasePart")
-                    
-                    if rootPart and targetPart and targetPart:IsDescendantOf(Workspace) then
-                        rootPart.CFrame = targetPart.CFrame
-                        getgenv().ItemsCollected = getgenv().ItemsCollected + 1
-                        CounterLabel.Text = "Coletados: " .. tostring(getgenv().ItemsCollected)
-                        task.wait(0.4) -- Delay adaptado para evitar kick por movimentação no Xeno
+    for _, part in ipairs(char:GetDescendants()) do
+        if part:IsA("BasePart") or part:IsA("Decal") then
+            -- Ignora o HumanoidRootPart para você não cair do mapa
+            if part.Name ~= "HumanoidRootPart" then
+                if state then
+                    -- Salva a transparência original se ainda não tiver salvo
+                    if not savedParts[part] then
+                        savedParts[part] = part.Transparency
+                    end
+                    part.Transparency = 1 -- Fica invisível
+                    if part:IsA("BasePart") then
+                        part.CanCollide = false
+                    end
+                else
+                    -- Restaura se for desativado
+                    if savedParts[part] then
+                        part.Transparency = savedParts[part]
+                        if part.Name == "UpperTorso" or part.Name == "LowerTorso" or part.Name == "Torso" then
+                            part.CanCollide = true
+                        end
                     end
                 end
             end
         end
     end
+end
+
+-- Mantém invisível mesmo se o boneco renascer ou atualizar as roupas
+task.spawn(function()
+    while ScreenGui and ScreenGui.Parent do
+        if getgenv().InvisibleMode then
+            setInvisState(true)
+        end
+        task.wait(0.5)
+    end
 end)
 
 ----------------------------------------------------
--- ASSINATURA DE EVENTOS DOS BOTÕES
+-- MECÂNICA DE COLETA (CRISTAIS & CRATES)
 ----------------------------------------------------
+local function collectItem(object)
+    if not getgenv().AutoCollectCrystals then return end
+    local character = player.Character
+    local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+    local targetPart = object:IsA("BasePart") and object or object:FindFirstChildWhichIsA("BasePart")
+    
+    if rootPart and targetPart then
+        rootPart.CFrame = targetPart.CFrame
+        getgenv().ItemsCollected = getgenv().ItemsCollected + 1
+        CounterLabel.Text = "Coletados: " .. tostring(getgenv().ItemsCollected)
+        task.wait(0.3)
+    end
+end
+
+-- Loop de Varredura Otimizado
+task.spawn(function()
+    while ScreenGui and ScreenGui.Parent do
+        if getgenv().AutoCollectCrystals then
+            for _, child in ipairs(workspace:GetChildren()) do
+                -- Ignora pastas pesadas de construções e esteiras
+                if child.Name ~= "Tycoons" and child.Name ~= "Environments" then
+                    local nameLower = child.Name:lower()
+                    -- Filtro detecta variações de Crystal (cristais) e Crate / Gift / Box (caixas de evento)
+                    if string.find(nameLower, "crystal") or string.find(nameLower, "cristal") or string.find(nameLower, "crate") or string.find(nameLower, "box") then
+                        collectItem(child)
+                    elseif child:IsA("Model") and (string.find(nameLower, "crystal") or string.find(nameLower, "cristal") or string.find(nameLower, "crate") or string.find(nameLower, "box")) then
+                        collectItem(child)
+                    end
+                end
+            end
+        end
+        task.wait(2)
+    end
+end)
+
+----------------------------------------------------
+-- FUNCIONALIDADES DOS BOTÕES
+----------------------------------------------------
+
+-- Toggle Farm
 ToggleButton.MouseButton1Click:Connect(function()
     getgenv().AutoCollectCrystals = not getgenv().AutoCollectCrystals
     if getgenv().AutoCollectCrystals then
-        ToggleButton.BackgroundColor3 = Color3.fromRGB(65, 255, 65)
         ToggleButton.Text = "Auto-Farm: ATIVADO"
-        Credits.Text = "Varrendo o mapa por itens..."
+        TweenService:Create(ToggleButton, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(65, 180, 65)}):Play()
+        Credits.Text = "Buscando Cristais e Caixas..."
     else
-        ToggleButton.BackgroundColor3 = Color3.fromRGB(255, 65, 65)
         ToggleButton.Text = "Auto-Farm: DESATIVADO"
+        TweenService:Create(ToggleButton, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(255, 65, 65)}):Play()
         Credits.Text = "Farm pausado."
     end
 end)
 
+-- Toggle Invisibilidade
 InvisButton.MouseButton1Click:Connect(function()
     getgenv().InvisibleMode = not getgenv().InvisibleMode
     if getgenv().InvisibleMode then
-        InvisButton.BackgroundColor3 = Color3.fromRGB(65, 255, 65)
-        InvisButton.Text = "Invisibilidade: ATIVADO"
+        InvisButton.Text = "Invisibilidade: ATIVADA"
+        TweenService:Create(InvisButton, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(65, 180, 65)}):Play()
         setInvisState(true)
     else
-        InvisButton.BackgroundColor3 = Color3.fromRGB(255, 65, 65)
-        InvisButton.Text = "Invisibilidade: DESATIVADO"
+        InvisButton.Text = "Invisibilidade: DESATIVADA"
+        TweenService:Create(InvisButton, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(255, 65, 65)}):Play()
         setInvisState(false)
+        savedParts = {}
     end
 end)
 
+-- Minimizar
 local minimized = false
 MinButton.MouseButton1Click:Connect(function()
     minimized = not minimized
     if minimized then
-        MainFrame.Size = UDim2.new(0, 240, 0, 35)
+        TweenService:Create(MainFrame, TweenInfo.new(0.3), {Size = UDim2.new(0, 240, 0, 35)}):Play()
+        CounterLabel.Visible = false
         ToggleButton.Visible = false
         InvisButton.Visible = false
-        CounterLabel.Visible = false
         Credits.Visible = false
+        MinButton.Text = "+"
     else
-        MainFrame.Size = UDim2.new(0, 240, 0, 240)
+        TweenService:Create(MainFrame, TweenInfo.new(0.3), {Size = UDim2.new(0, 240, 0, 240)}):Play()
+        task.wait(0.1)
+        CounterLabel.Visible = true
         ToggleButton.Visible = true
         InvisButton.Visible = true
-        CounterLabel.Visible = true
         Credits.Visible = true
+        MinButton.Text = "_"
     end
 end)
 
-CloseButton.MouseButton1Click:Connect(function()
-    getgenv().AutoCollectCrystals = false
-    getgenv().InvisibleMode = false
-    ScreenGui:Destroy()
-end)
+-- Fechar
