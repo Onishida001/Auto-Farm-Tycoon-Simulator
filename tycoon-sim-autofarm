@@ -128,35 +128,39 @@ Credits.Parent = MainFrame
 ----------------------------------------------------
 -- SISTEMA DE INVISIBILIDADE (COMPATÍVEL COM TELEPORTE)
 ----------------------------------------------------
-local savedParts = {}
-
 local function setInvisState(state)
     local char = player.Character
     if not char then return end
     
-    for _, part in ipairs(char:GetDescendants()) do
-        if part:IsA("BasePart") or part:IsA("Decal") then
-            -- Ignora o HumanoidRootPart para você não cair do mapa
-            if part.Name ~= "HumanoidRootPart" then
-                if state then
-                    -- Salva a transparência original se ainda não tiver salvo
-                    if not savedParts[part] then
-                        savedParts[part] = part.Transparency
-                    end
-                    part.Transparency = 1 -- Fica invisível
+    if state then
+        -- 1. Separação do HumanoidRootPart (FE Invisible)
+        local rootJoint
+        if char:FindFirstChild("LowerTorso") and char.LowerTorso:FindFirstChild("Root") then
+            rootJoint = char.LowerTorso.Root -- Padrão R15
+        elseif char:FindFirstChild("HumanoidRootPart") and char.HumanoidRootPart:FindFirstChild("RootJoint") then
+            rootJoint = char.HumanoidRootPart.RootJoint -- Padrão R6
+        end
+
+        if rootJoint then
+            rootJoint:Destroy()
+        end
+        
+        -- 2. Limpa a sua tela (Invisibilidade Local)
+        for _, part in ipairs(char:GetDescendants()) do
+            if part:IsA("BasePart") or part:IsA("Decal") then
+                if part.Name ~= "HumanoidRootPart" then
+                    part.Transparency = 1
                     if part:IsA("BasePart") then
                         part.CanCollide = false
                     end
-                else
-                    -- Restaura se for desativado
-                    if savedParts[part] then
-                        part.Transparency = savedParts[part]
-                        if part.Name == "UpperTorso" or part.Name == "LowerTorso" or part.Name == "Torso" then
-                            part.CanCollide = true
-                        end
-                    end
                 end
             end
+        end
+    else
+        -- 3. Única forma de reverter a separação é renascendo
+        local humanoid = char:FindFirstChild("Humanoid")
+        if humanoid then
+            humanoid.Health = 0 -- Força o reset para restaurar o corpo físico
         end
     end
 end
@@ -238,7 +242,6 @@ InvisButton.MouseButton1Click:Connect(function()
         InvisButton.Text = "Invisibilidade: DESATIVADA"
         TweenService:Create(InvisButton, TweenInfo.new(0.3), {BackgroundColor3 = Color3.fromRGB(255, 65, 65)}):Play()
         setInvisState(false)
-        savedParts = {}
     end
 end)
 
@@ -265,3 +268,11 @@ MinButton.MouseButton1Click:Connect(function()
 end)
 
 -- Fechar
+CloseButton.MouseButton1Click:Connect(function()
+    getgenv().AutoCollectCrystals = false
+    getgenv().InvisibleMode = false
+    if _G.CrystalUI then 
+        _G.CrystalUI:Destroy() 
+        _G.CrystalUI = nil
+    end
+end)
