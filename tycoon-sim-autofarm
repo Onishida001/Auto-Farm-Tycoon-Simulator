@@ -1,14 +1,13 @@
--- Versão otimizada e limpa exclusiva para o Xeno Executor
+-- Versão definitiva corrigida para o ambiente restrito do Xeno Executor
 
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
--- Usar PlayerGui é obrigatório no Xeno para evitar erros de "nil value" com CoreGui
 local PlayerGui = player:WaitForChild("PlayerGui") 
 
--- Deleta a interface anterior se ela já existir no PlayerGui
+-- Procura e limpa a interface antiga usando apenas o PlayerGui
 local antigaUI = PlayerGui:FindFirstChild("CrystalCollectorUI")
 if antigaUI then
     antigaUI:Destroy()
@@ -18,7 +17,7 @@ getgenv().AutoCollectCrystals = false
 getgenv().InvisibleMode = false
 getgenv().ItemsCollected = 0
 
--- Elementos Principais da Janela
+-- Inicialização Limpa da Interface no local correto
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "CrystalCollectorUI"
 ScreenGui.ResetOnSpawn = false
@@ -37,7 +36,7 @@ local UICorner = Instance.new("UICorner")
 UICorner.CornerRadius = UDim.new(0, 8)
 UICorner.Parent = MainFrame
 
--- Sistema Avançado de Arrastar compatível com o Xeno
+-- Mecânica de arrastar compatível com telas Mobile e Xeno
 local dragging, dragInput, dragStart, startPos
 local function update(input)
     local delta = input.Position - dragStart
@@ -60,7 +59,7 @@ UserInputService.InputChanged:Connect(function(input)
     if input == dragInput and dragging then update(input) end
 end)
 
--- Barra de Título
+-- Título do Painel
 local TitleBar = Instance.new("TextLabel")
 TitleBar.Size = UDim2.new(1, 0, 0, 35)
 TitleBar.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
@@ -98,7 +97,7 @@ CloseButton.Font = Enum.Font.SourceSansBold
 CloseButton.TextSize = 16
 CloseButton.Parent = MainFrame
 
--- Contador de Itens
+-- Contador de Cristais
 local CounterLabel = Instance.new("TextLabel")
 CounterLabel.Size = UDim2.new(1, -40, 0, 30)
 CounterLabel.Position = UDim2.new(0, 20, 0, 50)
@@ -113,7 +112,7 @@ local CounterCorner = Instance.new("UICorner")
 CounterCorner.CornerRadius = UDim.new(0, 6)
 CounterCorner.Parent = CounterLabel
 
--- Botão de Ativar/Desativar Farm
+-- Botão Auto-Farm
 local ToggleButton = Instance.new("TextButton")
 ToggleButton.Size = UDim2.new(1, -40, 0, 45)
 ToggleButton.Position = UDim2.new(0, 20, 0, 95)
@@ -128,7 +127,7 @@ local ButtonCorner = Instance.new("UICorner")
 ButtonCorner.CornerRadius = UDim.new(0, 6)
 ButtonCorner.Parent = ToggleButton
 
--- Botão de Ativar/Desativar Invisibilidade
+-- Botão Invisibilidade
 local InvisButton = Instance.new("TextButton")
 InvisButton.Size = UDim2.new(1, -40, 0, 45)
 InvisButton.Position = UDim2.new(0, 20, 0, 150)
@@ -143,19 +142,19 @@ local InvisCorner = Instance.new("UICorner")
 InvisCorner.CornerRadius = UDim.new(0, 6)
 InvisCorner.Parent = InvisButton
 
--- Créditos
+-- Status Geral / Créditos
 local Credits = Instance.new("TextLabel")
 Credits.Size = UDim2.new(1, 0, 0, 20)
 Credits.Position = UDim2.new(0, 0, 1, -25)
 Credits.BackgroundTransparency = 1
-Credits.Text = "Aguardando comandos..."
+Credits.Text = "Pronto para o uso!"
 Credits.TextColor3 = Color3.fromRGB(150, 150, 150)
 Credits.Font = Enum.Font.SourceSansItalic
 Credits.TextSize = 12
 Credits.Parent = MainFrame
 
 ----------------------------------------------------
--- INVISIBILIDADE
+-- FUNCIONALIDADE DE INVISIBILIDADE LOCAL
 ----------------------------------------------------
 local function setInvisState(state)
     local char = player.Character
@@ -184,7 +183,7 @@ task.spawn(function()
 end)
 
 ----------------------------------------------------
--- COLETA RECURSIVA (PEGA TUDO NO MAPA)
+-- COLETOR INTELIGENTE RECURSIVO
 ----------------------------------------------------
 local function isTargetItem(object)
     local nameLower = object.Name:lower()
@@ -209,7 +208,7 @@ task.spawn(function()
                         rootPart.CFrame = targetPart.CFrame
                         getgenv().ItemsCollected = getgenv().ItemsCollected + 1
                         CounterLabel.Text = "Coletados: " .. tostring(getgenv().ItemsCollected)
-                        task.wait(0.35) -- Delay seguro para o Xeno não travar a física
+                        task.wait(0.4) -- Delay adaptado para evitar kick por movimentação no Xeno
                     end
                 end
             end
@@ -218,15 +217,14 @@ task.spawn(function()
 end)
 
 ----------------------------------------------------
--- CONEXÕES DOS BOTÕES
+-- ASSINATURA DE EVENTOS DOS BOTÕES
 ----------------------------------------------------
-
 ToggleButton.MouseButton1Click:Connect(function()
     getgenv().AutoCollectCrystals = not getgenv().AutoCollectCrystals
     if getgenv().AutoCollectCrystals then
         ToggleButton.BackgroundColor3 = Color3.fromRGB(65, 255, 65)
         ToggleButton.Text = "Auto-Farm: ATIVADO"
-        Credits.Text = "Coletando itens..."
+        Credits.Text = "Varrendo o mapa por itens..."
     else
         ToggleButton.BackgroundColor3 = Color3.fromRGB(255, 65, 65)
         ToggleButton.Text = "Auto-Farm: DESATIVADO"
