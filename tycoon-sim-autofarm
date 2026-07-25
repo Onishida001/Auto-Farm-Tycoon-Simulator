@@ -1,15 +1,18 @@
--- Garante que interfaces anteriores sejam deletadas ao reexecutar
-if _G.CrystalUI then 
-    pcall(function() _G.CrystalUI:Destroy() end) 
-end
+-- Versão otimizada e limpa exclusiva para o Xeno Executor
 
-local CoreGui = game:GetService("CoreGui")
-local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local UserInputService = game:GetService("UserInputService")
 
 local player = Players.LocalPlayer
+-- Usar PlayerGui é obrigatório no Xeno para evitar erros de "nil value" com CoreGui
+local PlayerGui = player:WaitForChild("PlayerGui") 
+
+-- Deleta a interface anterior se ela já existir no PlayerGui
+local antigaUI = PlayerGui:FindFirstChild("CrystalCollectorUI")
+if antigaUI then
+    antigaUI:Destroy()
+end
 
 getgenv().AutoCollectCrystals = false
 getgenv().InvisibleMode = false
@@ -19,8 +22,7 @@ getgenv().ItemsCollected = 0
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "CrystalCollectorUI"
 ScreenGui.ResetOnSpawn = false
-ScreenGui.Parent = CoreGui
-_G.CrystalUI = ScreenGui
+ScreenGui.Parent = PlayerGui
 
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
@@ -35,7 +37,7 @@ local UICorner = Instance.new("UICorner")
 UICorner.CornerRadius = UDim.new(0, 8)
 UICorner.Parent = MainFrame
 
--- Sistema Moderno de Arrastar a Janela (Substituindo o Draggable)
+-- Sistema Avançado de Arrastar compatível com o Xeno
 local dragging, dragInput, dragStart, startPos
 local function update(input)
     local delta = input.Position - dragStart
@@ -153,14 +155,13 @@ Credits.TextSize = 12
 Credits.Parent = MainFrame
 
 ----------------------------------------------------
--- SISTEMA DE INVISIBILIDADE (SEGURO E ATUALIZADO)
+-- INVISIBILIDADE
 ----------------------------------------------------
 local function setInvisState(state)
     local char = player.Character
     if not char then return end
     
     if state then
-        -- Torna partes locais transparentes sem quebrar juntas motoras fundamentais
         for _, part in ipairs(char:GetDescendants()) do
             if part:IsA("BasePart") or part:IsA("Decal") then
                 if part.Name ~= "HumanoidRootPart" then
@@ -171,7 +172,7 @@ local function setInvisState(state)
         end
     else
         local humanoid = char:FindFirstChildOfClass("Humanoid")
-        if humanoid then humanoid.Health = 0 end -- Força respawn para resetar estado
+        if humanoid then humanoid.Health = 0 end 
     end
 end
 
@@ -183,7 +184,7 @@ task.spawn(function()
 end)
 
 ----------------------------------------------------
--- MECÂNICA DE COLETA OTIMIZADA
+-- COLETA RECURSIVA (PEGA TUDO NO MAPA)
 ----------------------------------------------------
 local function isTargetItem(object)
     local nameLower = object.Name:lower()
@@ -196,7 +197,6 @@ task.spawn(function()
     while task.wait(1) do
         if not ScreenGui or not ScreenGui.Parent then break end
         if getgenv().AutoCollectCrystals then
-            -- Procura em absolutamente todo o mapa de forma recursiva
             for _, child in ipairs(Workspace:GetDescendants()) do
                 if not getgenv().AutoCollectCrystals then break end
                 
@@ -206,13 +206,10 @@ task.spawn(function()
                     local targetPart = child:IsA("BasePart") and child or child:FindFirstChildWhichIsA("BasePart")
                     
                     if rootPart and targetPart and targetPart:IsDescendantOf(Workspace) then
-                        -- Teleporta com segurança
                         rootPart.CFrame = targetPart.CFrame
                         getgenv().ItemsCollected = getgenv().ItemsCollected + 1
                         CounterLabel.Text = "Coletados: " .. tostring(getgenv().ItemsCollected)
-                        
-                        -- Pequeno delay anti-kick para o servidor processar a coleta
-                        task.wait(0.35) 
+                        task.wait(0.35) -- Delay seguro para o Xeno não travar a física
                     end
                 end
             end
@@ -221,16 +218,15 @@ task.spawn(function()
 end)
 
 ----------------------------------------------------
--- FUNCIONALIDADES DOS BOTÕES (CONEXÕES COMPLETAS)
+-- CONEXÕES DOS BOTÕES
 ----------------------------------------------------
 
--- Alternar Auto-Farm
 ToggleButton.MouseButton1Click:Connect(function()
     getgenv().AutoCollectCrystals = not getgenv().AutoCollectCrystals
     if getgenv().AutoCollectCrystals then
         ToggleButton.BackgroundColor3 = Color3.fromRGB(65, 255, 65)
         ToggleButton.Text = "Auto-Farm: ATIVADO"
-        Credits.Text = "Coletando itens automáticos..."
+        Credits.Text = "Coletando itens..."
     else
         ToggleButton.BackgroundColor3 = Color3.fromRGB(255, 65, 65)
         ToggleButton.Text = "Auto-Farm: DESATIVADO"
@@ -238,7 +234,6 @@ ToggleButton.MouseButton1Click:Connect(function()
     end
 end)
 
--- Alternar Invisibilidade
 InvisButton.MouseButton1Click:Connect(function()
     getgenv().InvisibleMode = not getgenv().InvisibleMode
     if getgenv().InvisibleMode then
@@ -252,12 +247,10 @@ InvisButton.MouseButton1Click:Connect(function()
     end
 end)
 
--- Minimizar Janela (Versão Corrigida sem TweenSize)
 local minimized = false
 MinButton.MouseButton1Click:Connect(function()
     minimized = not minimized
     if minimized then
-        -- Altera o tamanho direto para evitar erros em executores mobile
         MainFrame.Size = UDim2.new(0, 240, 0, 35)
         ToggleButton.Visible = false
         InvisButton.Visible = false
@@ -270,4 +263,10 @@ MinButton.MouseButton1Click:Connect(function()
         CounterLabel.Visible = true
         Credits.Visible = true
     end
+end)
+
+CloseButton.MouseButton1Click:Connect(function()
+    getgenv().AutoCollectCrystals = false
+    getgenv().InvisibleMode = false
+    ScreenGui:Destroy()
 end)
