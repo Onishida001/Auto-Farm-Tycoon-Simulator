@@ -252,14 +252,22 @@ InvisButton.MouseButton1Click:Connect(function()
     end
 end)
 
--- Minimizar Janela
+-- Minimizar Janela (Versão Corrigida sem TweenSize)
 local minimized = false
 MinButton.MouseButton1Click:Connect(function()
     minimized = not minimized
     if minimized then
-        MainFrame:TweenSize(UDim2.new(0, 240, 0, 35), Enum.EasingDirection.Out, Enum.EasingStyle.Quart, 0.3, true)
+        -- Altera o tamanho direto para evitar erros em executores mobile
+        MainFrame.Size = UDim2.new(0, 240, 0, 35)
         ToggleButton.Visible = false
         InvisButton.Visible = false
         CounterLabel.Visible = false
         Credits.Visible = false
     else
+        MainFrame.Size = UDim2.new(0, 240, 0, 240)
+        ToggleButton.Visible = true
+        InvisButton.Visible = true
+        CounterLabel.Visible = true
+        Credits.Visible = true
+    end
+end)
